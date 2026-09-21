@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Share a Photo</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 20px;
+    }
+
+    h1 {
+      text-align: center;
+    }
+
+    label {
+      display: block;
+      margin-top: 20px;
+      margin-bottom: 8px;
+      font-weight: bold;
+    }
+
+    input,
+    textarea,
+    button {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 12px;
+      font-size: 16px;
+    }
+
+    textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+
+    button {
+      margin-top: 20px;
+      cursor: pointer;
+    }
+
+    #message {
+      margin-top: 20px;
+      text-align: center;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>Share a Photo</h1>
+
+  <form id="uploadForm">
+
+    <label for="image">
+      Choose an image
+    </label>
+
+    <input
+      type="file"
+      id="image"
+      accept="image/*"
+      required
+    >
+
+    <label for="caption">
+      Caption
+    </label>
+
+    <textarea
+      id="caption"
+      placeholder="Tell us about your photo..."
+      required
+    ></textarea>
+
+    <button type="submit">
+      Submit Photo
+    </button>
+
+  </form>
+
+  <div id="message"></div>
+
+  <script type="module">
+
+    // YOUR SUPABASE INFORMATION
+    const SUPABASE_URL = "https://zgtupezivjwvwaeyrszd.supabase.co/rest/v1/";
+    const SUPABASE_KEY = "sb_publishable_073oOYh5SS81xNGEkl42hA_w3q89mbT";
+
+
+    async function uploadPhoto(imageFile, caption) {
+
+      const fileName =
+        Date.now() + "-" +
+        imageFile.name.replace(/[^a-zA-Z0-9.-]/g, "-");
+
+
+      // Upload image to Supabase Storage
+
+      const uploadResponse = await fetch(
+        `${SUPABASE_URL}/storage/v1/object/gallery-images/${fileName}`,
+        {
+          method: "POST",
+
+          headers: {
+            "Authorization": `Bearer ${SUPABASE_KEY}`,
+            "apikey": SUPABASE_KEY,
+            "Content-Type": imageFile.type
+          },
+
+          body: imageFile
+        }
+      );
+
+
+      if (!uploadResponse.ok) {
+        throw new Error("Image upload failed.");
+      }
+
+
+      // Create public image URL
+
+      const imageUrl =
+        `${SUPABASE_URL}/storage/v1/object/public/gallery-images/${fileName}`;
+
+
+      // Save image information to database
+
+      const databaseResponse = await fetch(
+        `${SUPABASE_URL}/rest/v1/gallery`,
+        {
+          method: "POST",
+
+          headers: {
+            "Authorization": `Bearer ${SUPABASE_KEY}`,
+            "apikey": SUPABASE_KEY,
+            "Content-Type": "application/json",
+            "Prefer": "return=minimal"
+          },
+
+          body: JSON.stringify({
+            image_url: imageUrl,
+            caption: caption,
+            approved: false
+          })
+        }
+      );
+
+
+      if (!databaseResponse.ok) {
+        throw new Error("Could not save the photo information.");
+      }
+    }
+
+
+    document
+      .getElementById("uploadForm")
+      .addEventListener("submit", async function(event) {
+
+        event.preventDefault();
+
+        const imageInput =
+          document.getElementById("image");
+
+        const captionInput =
+          document.getElementById("caption");
+
+        const message =
+          document.getElementById("message");
+
+
+        const image =
+          imageInput.files[0];
+
+        const caption =
+          captionInput.value.trim();
+
+
+        if (!image || !caption) {
+          message.textContent =
+            "Please choose an image and enter a caption.";
+
+          return;
+        }
+
+
+        try {
+
+          message.textContent =
+            "Uploading...";
+
+
+          await uploadPhoto(image, caption);
+
+
+          message.textContent =
+            "Thank you! Your photo has been submitted.";
+
+
+          document
+            .getElementById("uploadForm")
+            .reset();
+
+
+        } catch (error) {
+
+          console.error(error);
+
+          message.textContent =
+            "Something went wrong. Please try again.";
+        }
+
+      });
+
+  </script>
+
+</body>
+</html>
